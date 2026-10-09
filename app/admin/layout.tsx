@@ -15,6 +15,15 @@ import {
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const [currentDateStr, setCurrentDateStr] = React.useState("TODAY");
+
+  React.useEffect(() => {
+    const d = new Date();
+    const dayName = d.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
+    const dayNum = d.getDate();
+    const monthName = d.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+    setCurrentDateStr(`${dayName} · ${dayNum} ${monthName}`);
+  }, []);
 
   const navItems = [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -87,8 +96,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </span>
 
           <div className="flex items-center gap-3">
-            <span className="px-3 py-1.5 rounded-lg border border-border bg-white text-xs font-mono font-semibold text-text-secondary">
-              THU · 27 AUG
+            <span className="px-3 py-1.5 rounded-lg border border-border bg-white text-xs font-mono font-semibold text-text-secondary" suppressHydrationWarning>
+              {currentDateStr}
             </span>
           </div>
         </div>

@@ -21,15 +21,15 @@ export default function WorkerHistoryPage() {
   const worker =
     workers.find(
       (w) =>
-        w.id === activeId ||
-        w.name.toLowerCase() === currentUser?.fullName?.toLowerCase() ||
-        w.workerCode === activeId ||
-        w.phone === currentUser?.phone
+        (activeId && w.id === activeId) ||
+        (w.name && currentUser?.fullName && w.name.toLowerCase() === currentUser.fullName.toLowerCase()) ||
+        (activeId && w.workerCode === activeId) ||
+        (currentUser?.phone && w.phone === currentUser.phone)
     ) || workers[0];
 
   const completedJobs = requests.filter(
     (r) =>
-      (r.assignedWorkerId === worker.id || r.assignedWorkerName === worker.name) &&
+      (r.assignedWorkerId === worker?.id || r.assignedWorkerName === worker?.name) &&
       (r.status === "PAID" || r.status === "COMPLETED")
   );
 

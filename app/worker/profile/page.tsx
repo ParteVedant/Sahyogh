@@ -35,10 +35,10 @@ export default function WorkerProfilePage() {
   const currentWorker =
     workers.find(
       (w) =>
-        w.id === activeId ||
-        w.name.toLowerCase() === currentUser?.fullName?.toLowerCase() ||
-        w.workerCode === activeId ||
-        w.phone === currentUser?.phone
+        (activeId && w.id === activeId) ||
+        (w.name && currentUser?.fullName && w.name.toLowerCase() === currentUser.fullName.toLowerCase()) ||
+        (activeId && w.workerCode === activeId) ||
+        (currentUser?.phone && w.phone === currentUser.phone)
     ) || workers[0];
 
   const [isEditing, setIsEditing] = useState(false);
@@ -58,8 +58,8 @@ export default function WorkerProfilePage() {
   };
 
   const profile = {
-    fullName: currentWorker?.name || "Worker",
-    email: currentUser?.email || `${currentWorker?.name.toLowerCase().replace(/\s+/g, ".")}@sahyog.com`,
+    fullName: currentWorker?.name || "Suresh Kumar",
+    email: currentUser?.email || (currentWorker?.name ? `${currentWorker.name.toLowerCase().replace(/\s+/g, ".")}@sahyog.com` : "suresh.worker@sahyog.com"),
     phone: currentWorker?.phone || "+91 98201 45231",
     primarySkills: currentWorker?.skills?.join(", ") || "Plumbing, Maintenance",
     experience: "5 Years",

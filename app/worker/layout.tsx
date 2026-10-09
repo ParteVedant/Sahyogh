@@ -29,16 +29,24 @@ export default function WorkerLayout({ children }: { children: React.ReactNode }
     (mounted &&
       workers.find(
         (w) =>
-          w.id === activeId ||
-          w.name.toLowerCase() === currentUser?.fullName?.toLowerCase() ||
-          w.workerCode === activeId ||
-          w.phone === currentUser?.phone
+          (activeId && w.id === activeId) ||
+          (w.name && currentUser?.fullName && w.name.toLowerCase() === currentUser.fullName.toLowerCase()) ||
+          (activeId && w.workerCode === activeId) ||
+          (currentUser?.phone && w.phone === currentUser.phone)
       )) ||
-    workers[0];
+    workers[0] || {
+      id: "worker-1",
+      name: "Suresh Kumar",
+      workerCode: "W-001",
+      societyName: "Sahyog Cooperative",
+      serviceAreas: ["Thane", "Mumbai"],
+      rating: 4.8,
+      jobsCompleted: 42,
+    };
 
   const activeJob = requests.find(
     (r) =>
-      (r.assignedWorkerId === worker.id || r.assignedWorkerName === worker.name) &&
+      (r.assignedWorkerId === worker?.id || r.assignedWorkerName === worker?.name) &&
       (r.status === "WORKER_ACCEPTED" || r.status === "IN_PROGRESS" || r.status === "SCHEDULED")
   ) || requests[1];
 
@@ -56,26 +64,26 @@ export default function WorkerLayout({ children }: { children: React.ReactNode }
       <div className="bg-primary text-white rounded-2xl p-6 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4" suppressHydrationWarning>
         <div className="flex items-center gap-4" suppressHydrationWarning>
           <div className="w-14 h-14 rounded-full bg-accent text-white font-bold text-2xl flex items-center justify-center shadow" suppressHydrationWarning>
-            {worker.name.charAt(0)}
+            {worker?.name ? worker.name.charAt(0) : "W"}
           </div>
           <div suppressHydrationWarning>
             <div className="flex items-center gap-2 flex-wrap" suppressHydrationWarning>
-              <h2 className="text-xl font-bold" suppressHydrationWarning>{worker.name}</h2>
+              <h2 className="text-xl font-bold" suppressHydrationWarning>{worker?.name || "Suresh Kumar"}</h2>
               <span className="text-xs font-mono bg-white/10 px-2 py-0.5 rounded text-gray-200" suppressHydrationWarning>
-                {worker.workerCode}
+                {worker?.workerCode || "W-001"}
               </span>
               <Badge variant="verified" />
             </div>
-            <p className="text-xs text-gray-300 mt-0.5" suppressHydrationWarning>{worker.societyName}</p>
-            <p className="text-xs text-gray-300" suppressHydrationWarning>Areas: {worker.serviceAreas.join(", ")}</p>
+            <p className="text-xs text-gray-300 mt-0.5" suppressHydrationWarning>{worker?.societyName || "Sahyog Cooperative"}</p>
+            <p className="text-xs text-gray-300" suppressHydrationWarning>Areas: {worker?.serviceAreas ? worker.serviceAreas.join(", ") : "Thane, Mumbai"}</p>
           </div>
         </div>
 
         <div className="flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-3 sm:pt-0 border-white/10" suppressHydrationWarning>
           <div className="flex items-center gap-1 font-bold text-accent text-lg" suppressHydrationWarning>
-            <Star className="w-5 h-5 fill-accent" /> {worker.rating} ★
+            <Star className="w-5 h-5 fill-accent" /> {worker?.rating || 4.8} ★
           </div>
-          <span className="text-xs text-gray-300" suppressHydrationWarning>{worker.jobsCompleted} Jobs Completed</span>
+          <span className="text-xs text-gray-300" suppressHydrationWarning>{worker?.jobsCompleted || 0} Jobs Completed</span>
         </div>
       </div>
 

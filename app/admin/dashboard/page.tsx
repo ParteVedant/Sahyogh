@@ -41,10 +41,18 @@ export default function AdminOpsDashboard() {
     initSupabaseData();
   }, [initSupabaseData]);
 
-  // Sort requests newest first (latest created at top of list)
-  const sortedRequests = [...requests].sort(
-    (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime() || b.id.localeCompare(a.id)
-  );
+  // Sort requests: Emergency & High Priority first, then newest first
+  const getPriorityWeight = (r: (typeof requests)[0]) => {
+    if (r.urgency === "EMERGENCY" || r.urgent) return 3;
+    if (r.urgency === "HIGH") return 2;
+    return 1;
+  };
+
+  const sortedRequests = [...requests].sort((a, b) => {
+    const priorityDiff = getPriorityWeight(b) - getPriorityWeight(a);
+    if (priorityDiff !== 0) return priorityDiff;
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime() || b.id.localeCompare(a.id);
+  });
 
   const newRequests = sortedRequests.filter(
     (r) => r.status === "REQUESTED" || r.status === "UNDER_REVIEW" || r.status === "ASSIGNMENT_PENDING"
@@ -195,12 +203,17 @@ export default function AdminOpsDashboard() {
               newRequests.map((req) => {
                 const Icon = ICON_MAP[req.categoryName] || Wrench;
                 const isEmergency = req.urgency === "EMERGENCY" || req.urgent;
+                const isHighPriority = req.urgency === "HIGH";
 
                 return (
                   <div
                     key={req.id}
                     className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all bg-white ${
-                      isEmergency ? "border-red-300 bg-red-50/30 ring-1 ring-red-400/40" : "border-border hover:border-primary shadow-sm"
+                      isEmergency
+                        ? "border-red-300 bg-red-50/30 ring-1 ring-red-400/40"
+                        : isHighPriority
+                        ? "border-amber-300 bg-amber-50/30"
+                        : "border-border hover:border-primary shadow-sm"
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -208,14 +221,18 @@ export default function AdminOpsDashboard() {
                         <Icon className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-mono font-bold text-gray-500">{req.id}</span>
                           <h4 className="font-bold text-text-primary text-sm">{req.title}</h4>
-                          {isEmergency && (
-                            <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 text-[10px] font-extrabold flex items-center gap-1">
-                              <AlertCircle className="w-3 h-3 text-red-600" /> URGENT
+                          {isEmergency ? (
+                            <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 text-[10px] font-extrabold flex items-center gap-1 border border-red-300">
+                              <AlertCircle className="w-3 h-3 text-red-600 animate-pulse" /> 🔴 EMERGENCY
                             </span>
-                          )}
+                          ) : isHighPriority ? (
+                            <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-extrabold flex items-center gap-1 border border-amber-300">
+                              🟡 PRIORITY DISPATCH
+                            </span>
+                          ) : null}
                         </div>
                         <span className="text-xs text-text-secondary font-mono">
                           📍 {req.address.locality}, {req.address.city} · {req.preferredDate} ({req.preferredTimeSlot})

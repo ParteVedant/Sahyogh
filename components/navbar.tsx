@@ -31,13 +31,28 @@ export function Navbar() {
     return "/auth/role-select";
   };
 
-  // Display name: use real user name from Supabase auth, or a portal fallback
+  // Display name: use real user name matching active portal, or authoritative fallback
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => { setMounted(true); }, []);
 
-  const displayName = (mounted && currentUser?.fullName) || (
-    isConsumer ? "My Account" : isAdmin ? "Coordinator" : "Worker"
-  );
+  let displayName = "My Account";
+  if (mounted) {
+    if (isAdmin) {
+      displayName = (currentUser && currentUser.role === "coordinator" && currentUser.fullName)
+        ? currentUser.fullName
+        : "Anita Deshmukh";
+    } else if (isWorker) {
+      displayName = (currentUser && currentUser.role === "worker" && currentUser.fullName)
+        ? currentUser.fullName
+        : "Suresh Kumar";
+    } else if (isConsumer) {
+      displayName = (currentUser && currentUser.role === "consumer" && currentUser.fullName)
+        ? currentUser.fullName
+        : "My Account";
+    } else {
+      displayName = currentUser?.fullName || "My Account";
+    }
+  }
 
   return (
     <header className="bg-primary text-white shadow-md sticky top-0 z-40">

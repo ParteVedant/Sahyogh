@@ -140,9 +140,9 @@ function LoginContent() {
       const matchedWorker = WORKER_ACCOUNTS.find((w) => w.email === email);
       
       activeUser = {
-        id: activeTab === "worker" ? (matchedWorker?.id || "worker-1") : "demo-user-id",
-        email,
-        fullName: activeTab === "worker" ? (matchedWorker?.name || "Worker") : activeTab === "coordinator" ? "Coordinator Admin" : "Consumer",
+        id: activeTab === "worker" ? (matchedWorker?.id || "worker-1") : activeTab === "coordinator" ? "coord-anita-001" : "demo-user-id",
+        email: activeTab === "coordinator" ? "anita.deshmukh@sahyog.coop" : email,
+        fullName: activeTab === "worker" ? (matchedWorker?.name || "Suresh Kumar") : activeTab === "coordinator" ? "Anita Deshmukh" : "Consumer",
         phone: "+91 98765 43210",
         role: expectedRole,
       };

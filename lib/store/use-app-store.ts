@@ -164,15 +164,40 @@ export const useAppStore = create<AppState>((set, get) => ({
       ]);
 
       set((state) => {
-        // Merge DB records with in-memory & localStorage ones
-        const mergeById = <T extends { id: string }>(inMemory: T[], fromDb: T[] | null): T[] => {
+        // Merge DB records with in-memory & localStorage ones while preserving urgency & priority flags
+        const mergeRequests = (inMemory: ServiceRequest[], fromDb: ServiceRequest[] | null): ServiceRequest[] => {
           if (!fromDb || fromDb.length === 0) return inMemory;
-          const dbMap = new Map(fromDb.map((r) => [r.id, r]));
-          const inMemoryOnlyNew = inMemory.filter((r) => !dbMap.has(r.id));
-          return [...fromDb, ...inMemoryOnlyNew];
+          
+          const inMemoryMap = new Map(inMemory.map((r) => [r.id, r]));
+          const fromDbMap = new Map(fromDb.map((r) => [r.id, r]));
+
+          const mergedFromDb = fromDb.map((dbReq) => {
+            const memReq = inMemoryMap.get(dbReq.id);
+            if (!memReq) return dbReq;
+            
+            const effectiveUrgency = dbReq.urgency || memReq.urgency || (dbReq.urgent || memReq.urgent ? "EMERGENCY" : "NORMAL");
+            const effectiveUrgent = dbReq.urgent || memReq.urgent || effectiveUrgency === "EMERGENCY" || effectiveUrgency === "HIGH";
+
+            return {
+              ...dbReq,
+              urgency: effectiveUrgency,
+              urgent: effectiveUrgent,
+              status: memReq.status !== dbReq.status ? memReq.status : dbReq.status,
+            };
+          });
+
+          const inMemoryOnlyNew = inMemory.filter((r) => !fromDbMap.has(r.id));
+          return [...inMemoryOnlyNew, ...mergedFromDb];
         };
 
-        const mergedRequests = mergeById(state.requests, dbReqs);
+        const mergeWorkers = (inMemory: WorkerProfile[], fromDb: WorkerProfile[] | null): WorkerProfile[] => {
+          if (!fromDb || fromDb.length === 0) return inMemory;
+          const fromDbMap = new Map(fromDb.map((w) => [w.id, w]));
+          const inMemoryOnlyNew = inMemory.filter((w) => !fromDbMap.has(w.id));
+          return [...inMemoryOnlyNew, ...fromDb];
+        };
+
+        const mergedRequests = mergeRequests(state.requests, dbReqs);
         if (typeof window !== "undefined") {
           try {
             localStorage.setItem("sahyog_requests", JSON.stringify(mergedRequests));
@@ -181,7 +206,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         return {
           categories: dbCats || state.categories,
-          workers: mergeById(state.workers, dbWorkers),
+          workers: mergeWorkers(state.workers, dbWorkers),
           requests: mergedRequests,
         };
       });
