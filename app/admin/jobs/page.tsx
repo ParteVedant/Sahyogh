@@ -119,7 +119,7 @@ export default function AdminJobsPage() {
                     <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary">
                       <span className="flex items-center gap-1">
                         <MapPin className="w-3.5 h-3.5 text-gray-400" />
-                        {req.address.locality}, {req.address.city}
+                        {req.address?.locality || "Thane"}, {req.address?.city || "Mumbai"}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 text-gray-400" />

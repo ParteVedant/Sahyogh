@@ -115,7 +115,7 @@ export default function AdminJobTrackingPage({
                   SERVICE LOCATION
                 </span>
                 <span className="col-span-2 font-bold text-text-primary">
-                  {request.address.houseNo}, {request.address.locality}, {request.address.city} - {request.address.pinCode}
+                  {request.address?.houseNo ? `${request.address.houseNo}, ` : ""}{request.address?.locality || "Thane"}, {request.address?.city || "Mumbai"} - {request.address?.pinCode || "400601"}
                 </span>
               </div>
 

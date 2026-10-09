@@ -38,14 +38,16 @@ export default function AdminServiceRequestsPage() {
 
   // Real-time filtering logic applying Search, Tab, Service, and Area filters simultaneously
   const filteredRequests = requests.filter((req) => {
+    if (!req) return false;
+
     // 1. Search Query Filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchTitle = req.title.toLowerCase().includes(q);
-      const matchCategory = req.categoryName.toLowerCase().includes(q);
-      const matchLocality = req.address.locality.toLowerCase().includes(q);
-      const matchConsumer = req.consumerName.toLowerCase().includes(q);
-      const matchId = req.id.toLowerCase().includes(q);
+      const matchTitle = req.title ? req.title.toLowerCase().includes(q) : false;
+      const matchCategory = req.categoryName ? req.categoryName.toLowerCase().includes(q) : false;
+      const matchLocality = req.address?.locality ? req.address.locality.toLowerCase().includes(q) : false;
+      const matchConsumer = req.consumerName ? req.consumerName.toLowerCase().includes(q) : false;
+      const matchId = req.id ? req.id.toLowerCase().includes(q) : false;
       if (!matchTitle && !matchCategory && !matchLocality && !matchConsumer && !matchId) {
         return false;
       }
@@ -65,12 +67,14 @@ export default function AdminServiceRequestsPage() {
 
     // 3. Service Dropdown Filter
     if (selectedService !== "ALL") {
-      if (req.categoryId.toLowerCase() !== selectedService.toLowerCase()) return false;
+      const catId = req.categoryId || "";
+      if (catId.toLowerCase() !== selectedService.toLowerCase()) return false;
     }
 
     // 4. Area Dropdown Filter
     if (selectedArea !== "ALL") {
-      if (!req.address.locality.toLowerCase().includes(selectedArea.toLowerCase())) return false;
+      const loc = req.address?.locality || "";
+      if (!loc.toLowerCase().includes(selectedArea.toLowerCase())) return false;
     }
 
     return true;

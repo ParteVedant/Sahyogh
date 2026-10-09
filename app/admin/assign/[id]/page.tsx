@@ -77,7 +77,7 @@ export default function AssignWorkerPage({ params }: { params: Promise<{ id: str
             {request.categoryName}
           </Badge>
           <Badge variant="custom" className="bg-emerald-100 text-emerald-800 border-emerald-300">
-            {request.address.locality}
+            {request.address?.locality || "Thane"}
           </Badge>
           {request.urgent && <Badge variant="urgent" />}
         </div>
@@ -95,7 +95,7 @@ export default function AssignWorkerPage({ params }: { params: Promise<{ id: str
             📅 <strong>Schedule:</strong> {request.preferredDate} ({request.preferredTimeSlot})
           </span>
           <span>
-            📍 <strong>Address:</strong> {request.address.houseNo}, {request.address.locality}
+            📍 <strong>Address:</strong> {request.address?.houseNo ? `${request.address.houseNo}, ` : ""}{request.address?.locality || "Thane"}
           </span>
         </div>
       </Card>

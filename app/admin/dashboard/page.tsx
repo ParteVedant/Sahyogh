@@ -235,7 +235,7 @@ export default function AdminOpsDashboard() {
                           ) : null}
                         </div>
                         <span className="text-xs text-text-secondary font-mono">
-                          📍 {req.address.locality}, {req.address.city} · {req.preferredDate} ({req.preferredTimeSlot})
+                          📍 {req.address?.locality || "Thane"}, {req.address?.city || "Mumbai"} · {req.preferredDate || "Today"} ({req.preferredTimeSlot || "Morning"})
                         </span>
                       </div>
                     </div>
