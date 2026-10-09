@@ -117,6 +117,8 @@ export async function fetchSupabaseRequests(): Promise<ServiceRequest[] | null> 
       evidencePhotos: item.evidence_photos,
       rating: item.rating,
       createdAt: item.created_at,
+      urgent: Boolean(item.urgent),
+      urgency: item.urgency || (item.urgent ? "EMERGENCY" : "NORMAL"),
     }));
   } catch (err) {
     console.warn("Supabase fetch error for service requests:", err);
@@ -146,6 +148,8 @@ export async function saveSupabaseRequest(request: ServiceRequest) {
       completion_notes: request.completionNotes,
       evidence_photos: request.evidencePhotos,
       rating: request.rating,
+      urgent: request.urgent,
+      urgency: request.urgency,
     });
   } catch (err) {
     console.warn("Supabase save error for service request:", err);

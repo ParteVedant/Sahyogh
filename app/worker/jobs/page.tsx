@@ -26,10 +26,10 @@ export default function WorkerJobsPage() {
   const currentWorker =
     workers.find(
       (w) =>
-        w.id === activeId ||
-        w.name.toLowerCase() === currentUser?.fullName?.toLowerCase() ||
-        w.workerCode === activeId ||
-        w.phone === currentUser?.phone
+        (activeId && w.id === activeId) ||
+        (w.name && currentUser?.fullName && w.name.toLowerCase() === currentUser.fullName.toLowerCase()) ||
+        (activeId && w.workerCode === activeId) ||
+        (currentUser?.phone && w.phone === currentUser.phone)
     ) || workers[0];
 
   const [isAvailable, setIsAvailable] = useState<boolean>(
@@ -199,7 +199,7 @@ export default function WorkerJobsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-text-secondary bg-gray-50 p-3 rounded-lg border border-gray-100">
                 <div className="flex items-center gap-1.5">
                   <MapPin className="w-4 h-4 text-primary shrink-0" />
-                  <span>📍 {job.address.locality}</span>
+                  <span>📍 {job.address?.locality || "Thane"}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Calendar className="w-4 h-4 text-primary shrink-0" />

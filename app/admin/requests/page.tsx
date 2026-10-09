@@ -74,6 +74,11 @@ export default function AdminServiceRequestsPage() {
     }
 
     return true;
+  }).sort((a, b) => {
+    const aEmerg = a.urgency === "EMERGENCY" || a.urgent ? 2 : a.urgency === "HIGH" ? 1 : 0;
+    const bEmerg = b.urgency === "EMERGENCY" || b.urgent ? 2 : b.urgency === "HIGH" ? 1 : 0;
+    if (bEmerg !== aEmerg) return bEmerg - aEmerg;
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
 
   return (
@@ -183,6 +188,9 @@ export default function AdminServiceRequestsPage() {
                 ? Hammer
                 : Wrench;
 
+            const isEmergency = req.urgency === "EMERGENCY" || req.urgent;
+            const isHighPriority = req.urgency === "HIGH";
+
             const badgeText =
               req.status === "WORKER_ASSIGNED"
                 ? "● Awaiting Assignment"
@@ -202,7 +210,13 @@ export default function AdminServiceRequestsPage() {
             return (
               <Card
                 key={req.id}
-                className="p-5 hover:border-primary transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                className={`p-5 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  isEmergency
+                    ? "border-red-400 bg-red-50/30 ring-1 ring-red-400/40 shadow-sm"
+                    : isHighPriority
+                    ? "border-amber-300 bg-amber-50/20"
+                    : "hover:border-primary"
+                }`}
               >
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-xl bg-gray-100 text-text-primary flex items-center justify-center shrink-0">
@@ -210,13 +224,23 @@ export default function AdminServiceRequestsPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-mono font-bold text-gray-500">{req.id}</span>
                       <h4 className="font-bold text-text-primary text-base">{req.categoryName}</h4>
+
+                      {isEmergency ? (
+                        <span className="px-2.5 py-0.5 rounded-md bg-red-100 text-red-800 text-[10px] font-extrabold border border-red-300 uppercase tracking-wider animate-pulse">
+                          🔴 EMERGENCY DISPATCH
+                        </span>
+                      ) : isHighPriority ? (
+                        <span className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[10px] font-extrabold border border-amber-300 uppercase tracking-wider">
+                          🟡 PRIORITY DISPATCH
+                        </span>
+                      ) : null}
                     </div>
                     <p className="text-xs text-text-secondary">{req.title}</p>
                     <div className="flex items-center gap-3 text-xs text-text-secondary font-mono pt-1">
-                      <span>📍 {req.address.locality}</span>
+                      <span>📍 {req.address?.locality || "Thane"}</span>
                       <span>• {req.preferredDate} ({req.preferredTimeSlot})</span>
                       <span>👤 {req.consumerName}</span>
                     </div>
@@ -228,7 +252,7 @@ export default function AdminServiceRequestsPage() {
                     {badgeText}
                   </span>
                   <Button
-                    variant="outline"
+                    variant={isEmergency ? "accent" : "outline"}
                     size="sm"
                     onClick={() => router.push(`/admin/requests/${req.id}`)}
                   >

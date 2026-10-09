@@ -61,14 +61,33 @@ function DataInitializer({ children }: { children: React.ReactNode }) {
       )
       .subscribe();
 
-    // 5. Periodic polling fallback every 3 seconds for guaranteed real-time UI monitoring
+    // 5. Cross-tab & local store sync listener
+    const handleStoreUpdate = () => {
+      try {
+        const savedRequests = localStorage.getItem("sahyog_requests");
+        if (savedRequests) {
+          const parsed = JSON.parse(savedRequests);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            useAppStore.setState({ requests: parsed });
+          }
+        }
+      } catch (e) {}
+    };
+
+    window.addEventListener("sahyog_store_update", handleStoreUpdate);
+    window.addEventListener("storage", handleStoreUpdate);
+
+    // 6. Periodic polling fallback every 3 seconds for guaranteed real-time UI monitoring
     const pollInterval = setInterval(() => {
       initSupabaseData();
+      handleStoreUpdate();
     }, 3000);
 
     return () => {
       authListener.subscription.unsubscribe();
       supabase.removeChannel(realtimeChannel);
+      window.removeEventListener("sahyog_store_update", handleStoreUpdate);
+      window.removeEventListener("storage", handleStoreUpdate);
       clearInterval(pollInterval);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps

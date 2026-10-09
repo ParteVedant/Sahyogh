@@ -24,10 +24,22 @@ export default function ActiveJobPage({ params }: { params: Promise<{ id: string
   const { requests, startJob, completeJob } = useAppStore();
 
   const reqId = resolvedParams.id;
-  const request = requests.find((r) => r.id === reqId) || requests[0];
+  const request = requests.find((r) => r.id === reqId) || requests.find((r) => r.id === "REQ-1042") || requests[0];
 
-  const [notes, setNotes] = useState(request.completionNotes || "");
+  const [notes, setNotes] = useState(request?.completionNotes || "");
   const [photoDoc, setPhotoDoc] = useState<PhotoDocument | null>(null);
+
+  if (!request) {
+    return (
+      <div className="max-w-md mx-auto my-12 p-8 text-center bg-white rounded-2xl border border-border space-y-4 shadow-sm">
+        <h2 className="text-xl font-bold text-text-primary">No Active Job Found</h2>
+        <p className="text-xs text-text-secondary">Job ID #{reqId} is not in your active queue.</p>
+        <Link href="/worker/jobs" className="inline-block">
+          <Button variant="accent" size="sm">Back to Assigned Jobs</Button>
+        </Link>
+      </div>
+    );
+  }
 
   const isInProgress = request.status === "IN_PROGRESS";
   const isFinished = request.status === "COMPLETION_PENDING" || request.status === "PAID" || request.status === "COMPLETED";
@@ -82,7 +94,7 @@ export default function ActiveJobPage({ params }: { params: Promise<{ id: string
             <div>
               <span className="font-bold block">FULL SERVICE ADDRESS (REVEALED)</span>
               <span className="text-xs text-text-secondary">
-                {request.address.houseNo}, {request.address.locality}, PIN {request.address.pinCode}
+                {request.address?.houseNo ? `${request.address.houseNo}, ` : ""}{request.address?.locality || "Thane"}, PIN {request.address?.pinCode || "400601"}
               </span>
             </div>
           </div>

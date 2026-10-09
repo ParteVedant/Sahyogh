@@ -152,7 +152,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   categories: INITIAL_CATEGORIES,
   workers: INITIAL_WORKERS,
-  requests: INITIAL_REQUESTS,
+  requests: typeof window !== "undefined" && localStorage.getItem("sahyog_requests") ? JSON.parse(localStorage.getItem("sahyog_requests")!) : INITIAL_REQUESTS,
   auditLogs: INITIAL_AUDIT_LOGS,
 
   initSupabaseData: async () => {
@@ -164,8 +164,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ]);
 
       set((state) => {
-        // Merge DB records with in-memory ones — DB records take priority for existing IDs
-        // but in-memory-only records (just created) are preserved
+        // Merge DB records with in-memory & localStorage ones
         const mergeById = <T extends { id: string }>(inMemory: T[], fromDb: T[] | null): T[] => {
           if (!fromDb || fromDb.length === 0) return inMemory;
           const dbMap = new Map(fromDb.map((r) => [r.id, r]));
@@ -173,10 +172,17 @@ export const useAppStore = create<AppState>((set, get) => ({
           return [...fromDb, ...inMemoryOnlyNew];
         };
 
+        const mergedRequests = mergeById(state.requests, dbReqs);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("sahyog_requests", JSON.stringify(mergedRequests));
+          } catch (e) {}
+        }
+
         return {
           categories: dbCats || state.categories,
           workers: mergeById(state.workers, dbWorkers),
-          requests: mergeById(state.requests, dbReqs),
+          requests: mergedRequests,
         };
       });
     } catch (e) {
@@ -191,8 +197,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     // Use logged-in user's real name & phone — fall back to defaults for demo
     const cu = get().currentUser;
-    const consumerName = cu?.fullName || "Consumer";
-    const consumerPhone = cu?.phone || "";
+    const consumerName = cu?.fullName || reqData.consumerName || "Consumer";
+    const consumerPhone = cu?.phone || reqData.consumerPhone || "+91 98199 88776";
+    const urgency = reqData.urgency || (reqData.urgent ? "EMERGENCY" : "NORMAL");
+    const urgent = reqData.urgent ?? (urgency === "EMERGENCY" || urgency === "HIGH");
 
     const newRequest: ServiceRequest = {
       ...reqData,
@@ -201,6 +209,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       createdAt: new Date().toISOString(),
       consumerName,
       consumerPhone,
+      urgency,
+      urgent,
       amount: {
         base: basePrice,
         fee: 50,
@@ -209,15 +219,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       },
     };
 
-    set((state) => ({
-      requests: [newRequest, ...state.requests],
-    }));
+    set((state) => {
+      const updatedRequests = [newRequest, ...state.requests];
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("sahyog_requests", JSON.stringify(updatedRequests));
+          window.dispatchEvent(new Event("sahyog_store_update"));
+        } catch (e) {}
+      }
+      return { requests: updatedRequests };
+    });
 
     get().addAuditLog(
       "CREATE_REQUEST",
       newRequest.consumerName,
       "MEMBER",
-      `Created service request ${newId} for ${newRequest.categoryName}`
+      `Created service request ${newId} for ${newRequest.categoryName} (${urgency} priority)`
     );
 
     saveSupabaseRequest(newRequest);
@@ -234,6 +251,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return r;
       });
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("sahyog_requests", JSON.stringify(updatedRequests));
+          window.dispatchEvent(new Event("sahyog_store_update"));
+        } catch (e) {}
+      }
       return { requests: updatedRequests };
     });
   },
