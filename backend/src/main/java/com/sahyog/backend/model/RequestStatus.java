@@ -1,0 +1,21 @@
+package com.sahyog.backend.model;
+
+public enum RequestStatus {
+    REQUESTED,
+    UNDER_REVIEW,
+    ASSIGNMENT_PENDING,
+    WORKER_ASSIGNED,
+    WORKER_ACCEPTED,
+    SCHEDULED,
+    IN_PROGRESS,
+    COMPLETION_PENDING,
+    COMPLETED,
+    PAYMENT_PENDING,
+    PAID,
+    INVOICED,
+    CLOSED,
+    CANCELLED,
+    REJECTED,
+    DISPUTED,
+    NO_WORKER_AVAILABLE
+}
