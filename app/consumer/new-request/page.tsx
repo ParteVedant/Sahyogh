@@ -20,7 +20,11 @@ function NewRequestFormContent() {
   const [title, setTitle] = useState("");
   const [problemDescription, setProblemDescription] = useState("");
   const [urgency, setUrgency] = useState<"NORMAL" | "HIGH" | "EMERGENCY">("NORMAL");
-  const [preferredDate, setPreferredDate] = useState("2026-08-30");
+  const [preferredDate, setPreferredDate] = useState<string>("");
+
+  React.useEffect(() => {
+    setPreferredDate(new Date().toISOString().split("T")[0]);
+  }, []);
   const [preferredTimeSlot, setPreferredTimeSlot] = useState("Morning (8am – 12pm)");
   const [houseNo, setHouseNo] = useState("Flat 302, Royal Palms");
   const [locality, setLocality] = useState("Borivali East");

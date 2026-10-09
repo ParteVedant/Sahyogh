@@ -164,31 +164,71 @@ export const useAppStore = create<AppState>((set, get) => ({
       ]);
 
       set((state) => {
-        // Merge DB records with in-memory & localStorage ones while preserving urgency & priority flags
-        const mergeRequests = (inMemory: ServiceRequest[], fromDb: ServiceRequest[] | null): ServiceRequest[] => {
-          if (!fromDb || fromDb.length === 0) return inMemory;
-          
-          const inMemoryMap = new Map(inMemory.map((r) => [r.id, r]));
-          const fromDbMap = new Map(fromDb.map((r) => [r.id, r]));
+        // Read local storage requests to ensure client-created requests are never lost during DB sync
+        let localRequests: ServiceRequest[] = [];
+        if (typeof window !== "undefined") {
+          try {
+            const raw = localStorage.getItem("sahyog_requests");
+            if (raw) localRequests = JSON.parse(raw);
+          } catch (e) {}
+        }
 
-          const mergedFromDb = fromDb.map((dbReq) => {
-            const memReq = inMemoryMap.get(dbReq.id);
-            if (!memReq) return dbReq;
-            
-            const effectiveUrgency = dbReq.urgency || memReq.urgency || (dbReq.urgent || memReq.urgent ? "EMERGENCY" : "NORMAL");
-            const effectiveUrgent = dbReq.urgent || memReq.urgent || effectiveUrgency === "EMERGENCY" || effectiveUrgency === "HIGH";
+        const map = new Map<string, ServiceRequest>();
 
-            return {
-              ...dbReq,
-              urgency: effectiveUrgency,
-              urgent: effectiveUrgent,
-              status: memReq.status !== dbReq.status ? memReq.status : dbReq.status,
-            };
+        // 1. Insert DB items first
+        if (dbReqs && Array.isArray(dbReqs)) {
+          dbReqs.forEach((r) => map.set(r.id, r));
+        }
+
+        // 2. Merge localStored items (preserve client-created requests & priority flags)
+        if (Array.isArray(localRequests)) {
+          localRequests.forEach((r) => {
+            const existing = map.get(r.id);
+            if (!existing) {
+              map.set(r.id, r);
+            } else {
+              const urgency = r.urgency || existing.urgency || (r.urgent || existing.urgent ? "EMERGENCY" : "NORMAL");
+              const urgent = r.urgent || existing.urgent || urgency === "EMERGENCY" || urgency === "HIGH";
+              map.set(r.id, {
+                ...existing,
+                ...r,
+                urgency,
+                urgent,
+                status: r.status !== existing.status ? r.status : existing.status,
+              });
+            }
           });
+        }
 
-          const inMemoryOnlyNew = inMemory.filter((r) => !fromDbMap.has(r.id));
-          return [...inMemoryOnlyNew, ...mergedFromDb];
-        };
+        // 3. Merge current in-memory state (highest priority for instant optimistic updates)
+        if (Array.isArray(state.requests)) {
+          state.requests.forEach((r) => {
+            const existing = map.get(r.id);
+            if (!existing) {
+              map.set(r.id, r);
+            } else {
+              const urgency = r.urgency || existing.urgency || (r.urgent || existing.urgent ? "EMERGENCY" : "NORMAL");
+              const urgent = r.urgent || existing.urgent || urgency === "EMERGENCY" || urgency === "HIGH";
+              map.set(r.id, {
+                ...existing,
+                ...r,
+                urgency,
+                urgent,
+                status: r.status !== existing.status ? r.status : existing.status,
+              });
+            }
+          });
+        }
+
+        const mergedRequests = Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime() || b.id.localeCompare(a.id)
+        );
+
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem("sahyog_requests", JSON.stringify(mergedRequests));
+          } catch (e) {}
+        }
 
         const mergeWorkers = (inMemory: WorkerProfile[], fromDb: WorkerProfile[] | null): WorkerProfile[] => {
           if (!fromDb || fromDb.length === 0) return inMemory;
@@ -196,13 +236,6 @@ export const useAppStore = create<AppState>((set, get) => ({
           const inMemoryOnlyNew = inMemory.filter((w) => !fromDbMap.has(w.id));
           return [...inMemoryOnlyNew, ...fromDb];
         };
-
-        const mergedRequests = mergeRequests(state.requests, dbReqs);
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem("sahyog_requests", JSON.stringify(mergedRequests));
-          } catch (e) {}
-        }
 
         return {
           categories: dbCats || state.categories,
@@ -250,6 +283,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         try {
           localStorage.setItem("sahyog_requests", JSON.stringify(updatedRequests));
           window.dispatchEvent(new Event("sahyog_store_update"));
+          if ("BroadcastChannel" in window) {
+            new BroadcastChannel("sahyog_realtime_channel").postMessage({ type: "SYNC_STORE" });
+          }
         } catch (e) {}
       }
       return { requests: updatedRequests };
@@ -280,6 +316,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         try {
           localStorage.setItem("sahyog_requests", JSON.stringify(updatedRequests));
           window.dispatchEvent(new Event("sahyog_store_update"));
+          if ("BroadcastChannel" in window) {
+            new BroadcastChannel("sahyog_realtime_channel").postMessage({ type: "SYNC_STORE" });
+          }
         } catch (e) {}
       }
       return { requests: updatedRequests };

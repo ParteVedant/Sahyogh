@@ -61,18 +61,39 @@ function DataInitializer({ children }: { children: React.ReactNode }) {
       )
       .subscribe();
 
-    // 5. Cross-tab & local store sync listener
+    // 5. Cross-tab & local store sync listener with BroadcastChannel
     const handleStoreUpdate = () => {
       try {
         const savedRequests = localStorage.getItem("sahyog_requests");
         if (savedRequests) {
           const parsed = JSON.parse(savedRequests);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            useAppStore.setState({ requests: parsed });
+            useAppStore.setState((state) => {
+              const map = new Map<string, any>();
+              parsed.forEach((r) => map.set(r.id, r));
+              state.requests.forEach((r) => {
+                if (!map.has(r.id)) map.set(r.id, r);
+              });
+              const merged = Array.from(map.values()).sort(
+                (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime() || b.id.localeCompare(a.id)
+              );
+              return { requests: merged };
+            });
           }
         }
       } catch (e) {}
     };
+
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      bc = new BroadcastChannel("sahyog_realtime_channel");
+      bc.onmessage = (event) => {
+        if (event.data?.type === "SYNC_STORE") {
+          handleStoreUpdate();
+          initSupabaseData();
+        }
+      };
+    }
 
     window.addEventListener("sahyog_store_update", handleStoreUpdate);
     window.addEventListener("storage", handleStoreUpdate);
@@ -86,6 +107,7 @@ function DataInitializer({ children }: { children: React.ReactNode }) {
     return () => {
       authListener.subscription.unsubscribe();
       supabase.removeChannel(realtimeChannel);
+      if (bc) bc.close();
       window.removeEventListener("sahyog_store_update", handleStoreUpdate);
       window.removeEventListener("storage", handleStoreUpdate);
       clearInterval(pollInterval);
