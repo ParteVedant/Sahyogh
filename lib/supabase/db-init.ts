@@ -99,27 +99,38 @@ export async function fetchSupabaseRequests(): Promise<ServiceRequest[] | null> 
     const { data, error } = await supabase.from("service_requests").select("*").order("created_at", { ascending: false });
     if (error || !data || data.length === 0) return null;
 
-    return data.map((item) => ({
-      id: item.id,
-      categoryId: item.category_id,
-      categoryName: item.category_name,
-      title: item.title,
-      problemDescription: item.problem_description,
-      consumerName: item.consumer_name,
-      consumerPhone: item.consumer_phone,
-      address: item.address,
-      status: item.status,
-      assignedWorkerId: item.assigned_worker_id,
-      preferredDate: item.preferred_date,
-      preferredTimeSlot: item.preferred_time_slot,
-      amount: item.amount,
-      completionNotes: item.completion_notes,
-      evidencePhotos: item.evidence_photos,
-      rating: item.rating,
-      createdAt: item.created_at,
-      urgent: Boolean(item.urgent),
-      urgency: item.urgency || (item.urgent ? "EMERGENCY" : "NORMAL"),
-    }));
+    return data.map((item) => {
+      const addrObj = typeof item.address === "object" && item.address ? item.address : {};
+      const itemUrgency = item.urgency || addrObj.urgency || (item.urgent || addrObj.urgent ? "EMERGENCY" : "NORMAL");
+      const itemUrgent = item.urgent ?? addrObj.urgent ?? (itemUrgency === "EMERGENCY" || itemUrgency === "HIGH");
+
+      return {
+        id: item.id,
+        categoryId: item.category_id || "plumbing",
+        categoryName: item.category_name || "General Service",
+        title: item.title || "Service Requirement",
+        problemDescription: item.problem_description || "",
+        consumerName: item.consumer_name || "Consumer",
+        consumerPhone: item.consumer_phone || "+91 98199 88776",
+        address: {
+          houseNo: addrObj.houseNo || "Flat 101",
+          locality: addrObj.locality || "Thane",
+          city: addrObj.city || "Mumbai",
+          pinCode: addrObj.pinCode || "400601",
+        },
+        status: item.status || "REQUESTED",
+        assignedWorkerId: item.assigned_worker_id,
+        preferredDate: item.preferred_date || new Date().toISOString().split("T")[0],
+        preferredTimeSlot: item.preferred_time_slot || "Morning (8am – 12pm)",
+        amount: item.amount,
+        completionNotes: item.completion_notes,
+        evidencePhotos: item.evidence_photos || [],
+        rating: item.rating,
+        createdAt: item.created_at || new Date().toISOString(),
+        urgent: itemUrgent,
+        urgency: itemUrgency,
+      };
+    });
   } catch (err) {
     console.warn("Supabase fetch error for service requests:", err);
     return null;
@@ -131,26 +142,45 @@ export async function fetchSupabaseRequests(): Promise<ServiceRequest[] | null> 
  */
 export async function saveSupabaseRequest(request: ServiceRequest) {
   try {
-    await supabase.from("service_requests").upsert({
+    const addressPayload = {
+      ...request.address,
+      urgency: request.urgency,
+      urgent: request.urgent,
+    };
+
+    const basePayload = {
       id: request.id,
-      category_id: request.categoryId,
-      category_name: request.categoryName,
+      category_id: (request.categoryId || "plumbing").toLowerCase(),
+      category_name: request.categoryName || "General Service",
       title: request.title,
       problem_description: request.problemDescription,
       consumer_name: request.consumerName,
       consumer_phone: request.consumerPhone,
-      address: request.address,
+      address: addressPayload,
       status: request.status,
-      assigned_worker_id: request.assignedWorkerId,
+      assigned_worker_id: request.assignedWorkerId || null,
       preferred_date: request.preferredDate,
       preferred_time_slot: request.preferredTimeSlot,
-      amount: request.amount,
-      completion_notes: request.completionNotes,
-      evidence_photos: request.evidencePhotos,
-      rating: request.rating,
+      amount: request.amount || null,
+      completion_notes: request.completionNotes || null,
+      evidence_photos: request.evidencePhotos || [],
+      rating: request.rating || null,
+    };
+
+    // Try full upsert first
+    const { error: fullError } = await supabase.from("service_requests").upsert({
+      ...basePayload,
       urgent: request.urgent,
       urgency: request.urgency,
     });
+
+    if (fullError) {
+      // Fallback: upsert using guaranteed standard schema columns
+      const { error: fallbackError } = await supabase.from("service_requests").upsert(basePayload);
+      if (fallbackError) {
+        console.error("Supabase upsert failed:", fallbackError.message);
+      }
+    }
   } catch (err) {
     console.warn("Supabase save error for service request:", err);
   }
