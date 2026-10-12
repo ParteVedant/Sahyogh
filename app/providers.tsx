@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAppStore } from "@/lib/store/use-app-store";
-import { supabase } from "@/lib/supabase/client";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { getCurrentProfile } from "@/lib/supabase/auth";
 
 function DataInitializer({ children }: { children: React.ReactNode }) {
@@ -42,24 +42,31 @@ function DataInitializer({ children }: { children: React.ReactNode }) {
     // 3. Fetch live Supabase data on app start
     initSupabaseData();
 
-    // 4. Realtime subscription to live database updates across all 3 portals
-    const realtimeChannel = supabase
-      .channel("public-db-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "service_requests" },
-        () => {
-          initSupabaseData();
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "workers" },
-        () => {
-          initSupabaseData();
-        }
-      )
-      .subscribe();
+    // 4. Realtime subscription to live database updates across all 3 portals (if configured)
+    let realtimeChannel: any = null;
+    if (isSupabaseConfigured) {
+      try {
+        realtimeChannel = supabase
+          .channel("public-db-changes")
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "service_requests" },
+            () => {
+              initSupabaseData();
+            }
+          )
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "workers" },
+            () => {
+              initSupabaseData();
+            }
+          )
+          .subscribe();
+      } catch (err) {
+        console.warn("Supabase realtime channel error:", err);
+      }
+    }
 
     // 5. Cross-tab & local store sync listener with BroadcastChannel
     const handleStoreUpdate = () => {
@@ -70,7 +77,7 @@ function DataInitializer({ children }: { children: React.ReactNode }) {
           if (Array.isArray(parsed) && parsed.length > 0) {
             useAppStore.setState((state) => {
               const map = new Map<string, any>();
-              parsed.forEach((r) => map.set(r.id, r));
+              parsed.forEach((r: any) => map.set(r.id, r));
               state.requests.forEach((r) => {
                 if (!map.has(r.id)) map.set(r.id, r);
               });
@@ -98,15 +105,15 @@ function DataInitializer({ children }: { children: React.ReactNode }) {
     window.addEventListener("sahyog_store_update", handleStoreUpdate);
     window.addEventListener("storage", handleStoreUpdate);
 
-    // 6. Periodic polling fallback every 3 seconds for guaranteed real-time UI monitoring
+    // 6. Fast polling fallback every 2 seconds for guaranteed real-time cross-device updates
     const pollInterval = setInterval(() => {
       initSupabaseData();
       handleStoreUpdate();
-    }, 3000);
+    }, 2000);
 
     return () => {
       authListener.subscription.unsubscribe();
-      supabase.removeChannel(realtimeChannel);
+      if (realtimeChannel) supabase.removeChannel(realtimeChannel);
       if (bc) bc.close();
       window.removeEventListener("sahyog_store_update", handleStoreUpdate);
       window.removeEventListener("storage", handleStoreUpdate);

@@ -12,15 +12,23 @@ export default function AdminServiceRequestsPage() {
   const { requests, initSupabaseData } = useAppStore();
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Refresh from Supabase when coordinator opens requests page
+  // Refresh when coordinator opens requests page
   useEffect(() => {
     setIsRefreshing(true);
-    initSupabaseData().finally(() => setIsRefreshing(false));
+    const timer = setTimeout(() => setIsRefreshing(false), 1500);
+    initSupabaseData().finally(() => {
+      clearTimeout(timer);
+      setIsRefreshing(false);
+    });
   }, [initSupabaseData]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
-    initSupabaseData().finally(() => setIsRefreshing(false));
+    const timer = setTimeout(() => setIsRefreshing(false), 1500);
+    initSupabaseData().finally(() => {
+      clearTimeout(timer);
+      setIsRefreshing(false);
+    });
   };
 
   const [activeTab, setActiveTab] = useState("ALL");

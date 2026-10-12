@@ -1,10 +1,11 @@
-import { supabase } from "./client";
-import { ServiceRequest, WorkerProfile, ServiceCategory, AuditLog } from "@/lib/types";
+import { supabase, isSupabaseConfigured } from "./client";
+import { ServiceRequest, WorkerProfile, ServiceCategory } from "@/lib/types";
 
 /**
- * Fetch Service Categories from Supabase database
+ * Fetch Service Categories
  */
 export async function fetchSupabaseCategories(): Promise<ServiceCategory[] | null> {
+  if (!isSupabaseConfigured) return null;
   try {
     const { data, error } = await supabase.from("categories").select("*");
     if (error || !data || data.length === 0) return null;
@@ -25,9 +26,10 @@ export async function fetchSupabaseCategories(): Promise<ServiceCategory[] | nul
 }
 
 /**
- * Fetch Workers from Supabase database
+ * Fetch Workers
  */
 export async function fetchSupabaseWorkers(): Promise<WorkerProfile[] | null> {
+  if (!isSupabaseConfigured) return null;
   try {
     const { data, error } = await supabase.from("workers").select("*");
     if (error || !data || data.length === 0) return null;
@@ -55,9 +57,10 @@ export async function fetchSupabaseWorkers(): Promise<WorkerProfile[] | null> {
 }
 
 /**
- * Save/Update Worker in Supabase database
+ * Save/Update Worker in database
  */
 export async function saveSupabaseWorker(worker: WorkerProfile) {
+  if (!isSupabaseConfigured) return;
   try {
     await supabase.from("workers").upsert({
       id: worker.id,
@@ -81,9 +84,10 @@ export async function saveSupabaseWorker(worker: WorkerProfile) {
 }
 
 /**
- * Delete Worker from Supabase database
+ * Delete Worker from database
  */
 export async function deleteSupabaseWorker(workerId: string) {
+  if (!isSupabaseConfigured) return;
   try {
     await supabase.from("workers").delete().eq("id", workerId);
   } catch (err) {
@@ -92,107 +96,156 @@ export async function deleteSupabaseWorker(workerId: string) {
 }
 
 /**
- * Fetch Service Requests from Supabase database
+ * Fetch Service Requests from real-time Next.js API or Supabase
  */
 export async function fetchSupabaseRequests(): Promise<ServiceRequest[] | null> {
-  try {
-    const { data, error } = await supabase.from("service_requests").select("*").order("created_at", { ascending: false });
-    if (error || !data || data.length === 0) return null;
-
-    return data.map((item) => {
-      const addrObj = typeof item.address === "object" && item.address ? item.address : {};
-      const itemUrgency = item.urgency || addrObj.urgency || (item.urgent || addrObj.urgent ? "EMERGENCY" : "NORMAL");
-      const itemUrgent = item.urgent ?? addrObj.urgent ?? (itemUrgency === "EMERGENCY" || itemUrgency === "HIGH");
-
-      return {
-        id: item.id,
-        categoryId: item.category_id || "plumbing",
-        categoryName: item.category_name || "General Service",
-        title: item.title || "Service Requirement",
-        problemDescription: item.problem_description || "",
-        consumerName: item.consumer_name || "Consumer",
-        consumerPhone: item.consumer_phone || "+91 98199 88776",
-        address: {
-          houseNo: addrObj.houseNo || "Flat 101",
-          locality: addrObj.locality || "Thane",
-          city: addrObj.city || "Mumbai",
-          pinCode: addrObj.pinCode || "400601",
-        },
-        status: item.status || "REQUESTED",
-        assignedWorkerId: item.assigned_worker_id,
-        preferredDate: item.preferred_date || new Date().toISOString().split("T")[0],
-        preferredTimeSlot: item.preferred_time_slot || "Morning (8am – 12pm)",
-        amount: item.amount,
-        completionNotes: item.completion_notes,
-        evidencePhotos: item.evidence_photos || [],
-        rating: item.rating,
-        createdAt: item.created_at || new Date().toISOString(),
-        urgent: itemUrgent,
-        urgency: itemUrgency,
-      };
-    });
-  } catch (err) {
-    console.warn("Supabase fetch error for service requests:", err);
-    return null;
+  // 1. Primary: fetch from our Next.js backend API (fast, reliable, cross-device on Vercel)
+  if (typeof window !== "undefined") {
+    try {
+      const res = await fetch("/api/requests", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json && Array.isArray(json.requests)) {
+          return json.requests;
+        }
+      }
+    } catch (err) {
+      console.warn("API fetch error for service requests:", err);
+    }
   }
+
+  // 2. Secondary: If Supabase is configured, fetch directly
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await supabase
+        .from("service_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        return data.map((item) => {
+          const addrObj = typeof item.address === "object" && item.address ? item.address : {};
+          const itemUrgency =
+            item.urgency || addrObj.urgency || (item.urgent || addrObj.urgent ? "EMERGENCY" : "NORMAL");
+          const itemUrgent =
+            item.urgent ?? addrObj.urgent ?? (itemUrgency === "EMERGENCY" || itemUrgency === "HIGH");
+
+          return {
+            id: item.id,
+            categoryId: item.category_id || "plumbing",
+            categoryName: item.category_name || "General Service",
+            title: item.title || "Service Requirement",
+            problemDescription: item.problem_description || "",
+            consumerName: item.consumer_name || "Consumer",
+            consumerPhone: item.consumer_phone || "+91 98199 88776",
+            address: {
+              houseNo: addrObj.houseNo || "Flat 101",
+              locality: addrObj.locality || "Thane",
+              city: addrObj.city || "Mumbai",
+              pinCode: addrObj.pinCode || "400601",
+            },
+            status: item.status || "REQUESTED",
+            assignedWorkerId: item.assigned_worker_id,
+            preferredDate: item.preferred_date || new Date().toISOString().split("T")[0],
+            preferredTimeSlot: item.preferred_time_slot || "Morning (8am – 12pm)",
+            amount: item.amount,
+            completionNotes: item.completion_notes,
+            evidencePhotos: item.evidence_photos || [],
+            rating: item.rating,
+            createdAt: item.created_at || new Date().toISOString(),
+            urgent: itemUrgent,
+            urgency: itemUrgency,
+          };
+        });
+      }
+    } catch (err) {
+      console.warn("Supabase fetch error for service requests:", err);
+    }
+  }
+
+  return null;
 }
 
 /**
- * Insert / Update Service Request in Supabase database
+ * Insert / Update Service Request in Next.js API & Supabase database
  */
 export async function saveSupabaseRequest(request: ServiceRequest) {
-  try {
-    const addressPayload = {
-      ...request.address,
-      urgency: request.urgency,
-      urgent: request.urgent,
-    };
-
-    const basePayload = {
-      id: request.id,
-      category_id: (request.categoryId || "plumbing").toLowerCase(),
-      category_name: request.categoryName || "General Service",
-      title: request.title,
-      problem_description: request.problemDescription,
-      consumer_name: request.consumerName,
-      consumer_phone: request.consumerPhone,
-      address: addressPayload,
-      status: request.status,
-      assigned_worker_id: request.assignedWorkerId || null,
-      preferred_date: request.preferredDate,
-      preferred_time_slot: request.preferredTimeSlot,
-      amount: request.amount || null,
-      completion_notes: request.completionNotes || null,
-      evidence_photos: request.evidencePhotos || [],
-      rating: request.rating || null,
-    };
-
-    // Try full upsert first
-    const { error: fullError } = await supabase.from("service_requests").upsert({
-      ...basePayload,
-      urgent: request.urgent,
-      urgency: request.urgency,
-    });
-
-    if (fullError) {
-      // Fallback: upsert using guaranteed standard schema columns
-      const { error: fallbackError } = await supabase.from("service_requests").upsert(basePayload);
-      if (fallbackError) {
-        console.error("Supabase upsert failed:", fallbackError.message);
-      }
+  // 1. Primary: Save to Next.js API (updates shared server store for all users)
+  if (typeof window !== "undefined") {
+    try {
+      fetch("/api/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      }).catch((e) => console.warn("Failed to post request to /api/requests:", e));
+    } catch (err) {
+      console.warn("API save error for service request:", err);
     }
-  } catch (err) {
-    console.warn("Supabase save error for service request:", err);
+  }
+
+  // 2. Secondary: Mirror to Supabase if configured
+  if (isSupabaseConfigured) {
+    try {
+      const addressPayload = {
+        ...request.address,
+        urgency: request.urgency,
+        urgent: request.urgent,
+      };
+
+      const basePayload = {
+        id: request.id,
+        category_id: (request.categoryId || "plumbing").toLowerCase(),
+        category_name: request.categoryName || "General Service",
+        title: request.title,
+        problem_description: request.problemDescription,
+        consumer_name: request.consumerName,
+        consumer_phone: request.consumerPhone,
+        address: addressPayload,
+        status: request.status,
+        assigned_worker_id: request.assignedWorkerId || null,
+        preferred_date: request.preferredDate,
+        preferred_time_slot: request.preferredTimeSlot,
+        amount: request.amount || null,
+        completion_notes: request.completionNotes || null,
+        evidence_photos: request.evidencePhotos || [],
+        rating: request.rating || null,
+      };
+
+      const { error: fullError } = await supabase.from("service_requests").upsert({
+        ...basePayload,
+        urgent: request.urgent,
+        urgency: request.urgency,
+      });
+
+      if (fullError) {
+        await supabase.from("service_requests").upsert(basePayload);
+      }
+    } catch (err) {
+      console.warn("Supabase save error for service request:", err);
+    }
   }
 }
 
 /**
- * Delete Service Request from Supabase database
+ * Delete Service Request from Next.js API & Supabase database
  */
 export async function deleteSupabaseRequest(requestId: string) {
-  try {
-    await supabase.from("service_requests").delete().eq("id", requestId);
-  } catch (err) {
-    console.warn("Supabase delete error for service request:", err);
+  if (typeof window !== "undefined") {
+    try {
+      fetch(`/api/requests?id=${encodeURIComponent(requestId)}`, {
+        method: "DELETE",
+      }).catch(() => {});
+    } catch {}
+  }
+
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from("service_requests").delete().eq("id", requestId);
+    } catch (err) {
+      console.warn("Supabase delete error for service request:", err);
+    }
   }
 }
