@@ -3,6 +3,38 @@ import { ServiceRequest } from "@/lib/types";
 import { INITIAL_REQUESTS } from "@/lib/store/mock-data";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase/client";
 
+import fs from "fs";
+import path from "path";
+
+function getFilePath(): string {
+  try {
+    return path.join("/tmp", "sahyog_requests.json");
+  } catch {
+    return "";
+  }
+}
+
+function loadFromFile(): ServiceRequest[] | null {
+  try {
+    const p = getFilePath();
+    if (p && fs.existsSync(p)) {
+      const data = fs.readFileSync(p, "utf-8");
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return null;
+}
+
+function saveToFile(reqs: ServiceRequest[]) {
+  try {
+    const p = getFilePath();
+    if (p) {
+      fs.writeFileSync(p, JSON.stringify(reqs), "utf-8");
+    }
+  } catch {}
+}
+
 // Global in-memory storage on server (persists across warm serverless lambdas on Vercel)
 declare global {
   var __sahyog_requests: ServiceRequest[] | undefined;
@@ -10,7 +42,12 @@ declare global {
 
 function getStoredRequests(): ServiceRequest[] {
   if (!globalThis.__sahyog_requests || globalThis.__sahyog_requests.length === 0) {
-    globalThis.__sahyog_requests = [...INITIAL_REQUESTS];
+    const fromFile = loadFromFile();
+    if (fromFile && fromFile.length > 0) {
+      globalThis.__sahyog_requests = fromFile;
+    } else {
+      globalThis.__sahyog_requests = [...INITIAL_REQUESTS];
+    }
   }
   return globalThis.__sahyog_requests;
 }
@@ -107,6 +144,7 @@ export async function POST(request: Request) {
     // Prepend to server store
     const updated = [completeReq, ...current.filter((r) => r.id !== completeReq.id)];
     globalThis.__sahyog_requests = updated;
+    saveToFile(updated);
 
     // Mirror to Supabase if configured
     if (isSupabaseConfigured) {
@@ -161,6 +199,7 @@ export async function PATCH(request: Request) {
     });
 
     globalThis.__sahyog_requests = updatedList;
+    saveToFile(updatedList);
 
     if (isSupabaseConfigured && updatedItem) {
       try {
@@ -191,7 +230,9 @@ export async function DELETE(request: Request) {
     }
 
     const current = getStoredRequests();
-    globalThis.__sahyog_requests = current.filter((r) => r.id !== id);
+    const updatedList = current.filter((r) => r.id !== id);
+    globalThis.__sahyog_requests = updatedList;
+    saveToFile(updatedList);
 
     if (isSupabaseConfigured) {
       try {

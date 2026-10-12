@@ -83,6 +83,18 @@ interface AppState {
   resetDemoData: () => void;
 }
 
+function syncRequests(requests: ServiceRequest[]) {
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem("sahyog_requests", JSON.stringify(requests));
+      window.dispatchEvent(new Event("sahyog_store_update"));
+      if ("BroadcastChannel" in window) {
+        new BroadcastChannel("sahyog_realtime_channel").postMessage({ type: "SYNC_STORE" });
+      }
+    } catch (e) {}
+  }
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   activeRole: "MEMBER",
   isLoggedIn: false,
@@ -326,9 +338,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteRequest: (requestId) => {
-    set((state) => ({
-      requests: state.requests.filter((r) => r.id !== requestId),
-    }));
+    set((state) => {
+      const updatedRequests = state.requests.filter((r) => r.id !== requestId);
+      syncRequests(updatedRequests);
+      return { requests: updatedRequests };
+    });
     deleteSupabaseRequest(requestId);
     get().addAuditLog(
       "DELETE_REQUEST",
@@ -397,6 +411,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           const updated = {
             ...r,
             assignedWorkerId: workerId,
+            assignedWorkerName: worker.name,
             status: "WORKER_ASSIGNED" as RequestStatus,
           };
           saveSupabaseRequest(updated);
@@ -405,6 +420,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         return r;
       });
 
+      syncRequests(updatedRequests);
       return { requests: updatedRequests };
     });
 
@@ -426,6 +442,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return r;
       });
+      syncRequests(updatedRequests);
       return { requests: updatedRequests };
     });
 
@@ -444,6 +461,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           const updated = {
             ...r,
             assignedWorkerId: undefined,
+            assignedWorkerName: undefined,
             status: "REJECTED" as RequestStatus,
           };
           saveSupabaseRequest(updated);
@@ -451,6 +469,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return r;
       });
+      syncRequests(updatedRequests);
       return { requests: updatedRequests };
     });
 
@@ -472,6 +491,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return r;
       });
+      syncRequests(updatedRequests);
       return { requests: updatedRequests };
     });
 
@@ -498,6 +518,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return r;
       });
+      syncRequests(updatedRequests);
       return { requests: updatedRequests };
     });
 
@@ -540,6 +561,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         return w;
       });
 
+      syncRequests(updatedRequests);
       return { requests: updatedRequests, workers: updatedWorkers };
     });
 
@@ -570,6 +592,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         }
         return r;
       });
+      syncRequests(updatedRequests);
       return { requests: updatedRequests };
     });
 
