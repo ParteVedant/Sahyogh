@@ -190,10 +190,11 @@ export async function PATCH(request: Request) {
 
     const current = getStoredRequests();
     let updatedItem: ServiceRequest | null = null;
-    const updatedList = current.map((r) => {
+    const updatedList: ServiceRequest[] = current.map((r): ServiceRequest => {
       if (r.id === id) {
-        updatedItem = { ...r, ...data };
-        return updatedItem;
+        const item: ServiceRequest = { ...r, ...data };
+        updatedItem = item;
+        return item;
       }
       return r;
     });
